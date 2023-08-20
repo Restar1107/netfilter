@@ -5,9 +5,10 @@
 #include <linux/types.h>
 #include <linux/netfilter.h>		/* for NF_ACCEPT */
 #include <errno.h>
-
+#include <string.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
+unsigned char * site_name;
 
 int dump(unsigned char* buf, int size) {
 	int i;
@@ -73,6 +74,11 @@ static u_int32_t print_pkt (struct nfq_data *tb)
 	if (ret >= 0){
 		printf("payload_len=%d\n", ret);
 		flag = dump(data,ret);
+		if (!memcmp(data + 0x3E, site_name, strlen(site_name) - 2)){
+			printf(" \n---------- you did it! ------------\n");
+			fputc('\n', stdout);
+			return 0;
+		}
 	}
 	
 	fputc('\n', stdout);
@@ -85,16 +91,17 @@ static int cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
 	      struct nfq_data *nfa, void *data)
 {
 	u_int32_t id = print_pkt(nfa);
-	if (!memcmp((char*)nfa + 0x3E, "test.gilgil.net", 15)){
-		printf(" \n---------- you did it! ------------\n");
+
+	printf("----------- entering callback\n");
+	if( id == 0){
 		return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 	}
-	printf("entering callback\n");
 	return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
 int main(int argc, char **argv)
 {
+	site_name = (unsigned char *)argv[1];
 	struct nfq_handle *h;
 	struct nfq_q_handle *qh;
 	struct nfnl_handle *nh;
@@ -173,3 +180,4 @@ int main(int argc, char **argv)
 
 	exit(0);
 }
+
